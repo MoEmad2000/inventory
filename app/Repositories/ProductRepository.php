@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\Product;
+use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ProductRepository
@@ -32,5 +33,28 @@ class ProductRepository
     public function delete(Product $product): bool
     {
         return $product->delete();
+    }
+
+    public function adjustStock(Product $product, string $type, int $quantity): Product
+    {
+        if ($type === 'increment') {
+            $product->increment('stock_quantity', $quantity);
+        } else {
+            if ($product->stock_quantity < $quantity) {
+                throw new Exception('Insufficient stock');
+            }
+
+            $product->decrement('stock_quantity', $quantity);
+        }
+        return $product->fresh();
+    }
+
+    public function lowStock()
+    {
+        return Product::whereColumn(
+            'stock_quantity',
+            '<=',
+            'low_stock_threshold'
+        )->get();
     }
 }
