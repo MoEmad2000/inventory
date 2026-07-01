@@ -1,58 +1,116 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Inventory App — Laravel + Docker Setup
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+This project runs on Docker with the following services:
 
-## About Laravel
+- **app** — PHP 8.3-FPM (Laravel)
+- **nginx** — Web server (port `8000`)
+- **postgres** — PostgreSQL 16 database (port `5433`)
+- **redis** — Redis 7 (port `6379`)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Prerequisites
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- Docker & Docker Compose installed
+- Git
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## 1. Clone the project
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone https://github.com/MoEmad2000/inventory.git
+cd inventory-app
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+If you're starting a fresh Laravel project instead of cloning one, make sure the Laravel source code exists in this directory before continuing (the Dockerfile only installs PHP/Composer, it doesn't create the app).
 
-## Contributing
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## 2. Create your `.env` file
 
-## Code of Conduct
+Copy the example env file (or create one) and set the database/redis connection to match the Docker service names:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+cp .env.example .env
+```
 
-## Security Vulnerabilities
+Update these values in `.env`:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```env
+DB_CONNECTION=pgsql
+DB_HOST=postgres
+DB_PORT=5432
+DB_DATABASE=inventory
+DB_USERNAME=postgres
+DB_PASSWORD=secret
 
-## License
+REDIS_HOST=redis
+REDIS_PORT=6379
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+> Note: Inside Docker's internal network, containers talk to each other using the **service name** (`postgres`, `redis`) and the **internal port** (`5432`, `6379`) — not the host-mapped ports (`5433`, `6379` from your machine).
+
+## 3. Build and start the containers
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+Check that all containers are running:
+
+```bash
+docker compose ps
+```
+
+## 4. Install PHP dependencies
+
+```bash
+docker compose exec app composer install
+```
+
+## 5. Generate the application key
+
+```bash
+docker compose exec app php artisan key:generate
+```
+
+## 6. Run database migrations
+
+```bash
+docker compose exec app php artisan migrate
+```
+
+Optionally, seed the database:
+
+```bash
+docker compose exec app php artisan db:seed
+```
+
+## 7. Set folder permissions (if needed)
+
+```bash
+docker compose exec app chmod -R 775 storage bootstrap/cache
+```
+
+## 8. Access the application
+
+Open your browser at:
+
+```
+http://localhost:8000
+```
+
+## Useful commands
+
+| Action | Command |
+|---|---|
+| Stop containers | `docker compose down` |
+| Stop and remove volumes (⚠ deletes DB data) | `docker compose down -v` |
+| View logs | `docker compose logs -f` |
+| Enter app container shell | `docker compose exec app bash` |
+| Run artisan commands | `docker compose exec app php artisan <command>` |
+| Run composer commands | `docker compose exec app composer <command>` |
+| Access PostgreSQL from host | `psql -h localhost -p 5433 -U postgres -d inventory` |
+
+## Notes
+
+- The `app` container has no `command` set, so it uses the default `php-fpm` entrypoint from the base image — this is correct for use with nginx via FastCGI.
+- Postgres data persists in the named volume `postgres_data`. Data survives `docker compose down` but is deleted with `docker compose down -v`.
+- If you change PHP extensions or system dependencies in the `Dockerfile`, rebuild with `docker compose build --no-cache`.
