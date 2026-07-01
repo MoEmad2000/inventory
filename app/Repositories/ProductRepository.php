@@ -5,7 +5,6 @@ namespace App\Repositories;
 use App\Models\Product;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Cache;
 
 class ProductRepository
 {
@@ -16,7 +15,7 @@ class ProductRepository
     }
     public function find(string $id): ?Product
     {
-        return Product::find($id);
+        return Product::findOrFail($id);
     }
 
     public function create(array $data): Product
