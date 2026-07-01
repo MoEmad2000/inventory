@@ -5,14 +5,15 @@ namespace App\Repositories;
 use App\Models\Product;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
 
 class ProductRepository
 {
+
     public function all(int $perPage = 10): LengthAwarePaginator
     {
-        return Product::paginate($perPage);
+        return Product::latest()->paginate($perPage);
     }
-
     public function find(string $id): ?Product
     {
         return Product::find($id);
